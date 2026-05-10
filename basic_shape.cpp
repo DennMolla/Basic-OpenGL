@@ -1,0 +1,162 @@
+#include <iostream>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>	
+#include <glm/gtc/type_ptr.hpp>
+#include <fstream>
+#include <string>
+#include <sstream>
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+//void processInput(GLFWwindow* window,);
+static unsigned int CompileShader(unsigned int type, const char* source) {
+	unsigned int id = glCreateShader(type);
+	glShaderSource(id, 1, &source, nullptr);
+	glCompileShader(id);
+
+	return id;
+}
+void processInput(GLFWwindow* window, float& increase) {
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+		increase += 0.0001f;
+	}
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, true);
+	}
+}
+
+static unsigned int CreateShader(const char* vertex, const char* fragment) {
+	unsigned int program = glCreateProgram();
+	unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertex);
+	unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragment);
+
+	glAttachShader(program, vs);
+	glAttachShader(program, fs);
+	glLinkProgram(program);
+	glValidateProgram(program);
+
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+
+	return program;
+
+}
+
+int main() {
+	glm::vec3 trianglePos(0.0f, 0.0f, 0.0f); // initialize the position of the triangle
+	float moveSpeed = 0.001f;
+	
+	float angle = glm::radians(45.0f);
+	glm::vec3 axis(0.0f, 0.0f, 1.0f);
+
+	int width = 800;
+	int height = 600;
+
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	GLFWwindow* window = glfwCreateWindow(width, height, "game", NULL, NULL);
+
+	if (window == NULL) {
+		std::cout << "Window failed to create" << std::endl;
+		glfwTerminate();
+		return -1;
+	}
+	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);
+
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		std::cout << "Failed to initialize GLAD" << std::endl;
+		glfwTerminate();
+		return -1;
+	}
+	glViewport(0, 0, width, height);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+	float vertices[] = {
+		-0.5f , -0.5f,
+		0.0f , 0.5f, 
+		0.5f , -0.5f, 
+	};
+
+	unsigned int VBO, VAO;
+	glGenBuffers(1, &VBO);
+	glGenVertexArrays(1, &VAO);
+	glBindVertexArray(VAO);
+	
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0);
+	glEnableVertexAttribArray(0);
+
+	const char* vertexShader = R"(
+		#version 330 core
+		layout (location = 0 ) in vec2 position;
+		
+		uniform mat4 transform;
+		void main()
+		{
+			gl_Position = transform * vec4(position, 0.0, 1.0);
+		}
+	)";
+	const char* fragmentShader = R"(
+		#version 330 core
+		layout (location = 0 ) out vec4 color;
+
+		uniform vec4 uCol;
+		void main()
+		{
+			color = uCol;
+		}
+	)";
+	//glEnable(GL_DEPTH_TEST);
+	unsigned int shader = CreateShader(vertexShader, fragmentShader);
+	glUseProgram(shader);
+	int location = glGetUniformLocation(shader, "uCol"); //change color//
+	glUniform4f(location, 0.2f, 0.0f, 0.1f, 1.0f);
+	
+	int transLoc = glGetUniformLocation(shader, "transform"); // the location of the 'transform' , in the shader //
+	float Colincrease = 0.1f;
+
+	while (!glfwWindowShouldClose(window))
+	{	
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			trianglePos.x += moveSpeed;
+		}
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			trianglePos.x -= moveSpeed;
+			
+		}
+		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+		{
+			axis.x += 0.005f;
+		}
+		processInput(window, Colincrease);
+
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glm::mat4 transform = glm::mat4(1.0f);	//move the triangle
+		transform = glm::translate(transform, trianglePos);
+		transform = glm::rotate(transform, angle, axis);
+
+		glUniform4f(location, Colincrease, 0.0f, 0.1f, 1.0f);
+		glUniformMatrix4fv(transLoc, 1, GL_FALSE, glm::value_ptr(transform));
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+	glfwTerminate();
+	return 0;
+}
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+
+	glViewport(0, 0, width, height);
+}
